@@ -1,0 +1,194 @@
+{
+  "policy_version": "redaction_policy_v1.0",
+  "generated_at": "2025-01-13T10:00:00Z",
+  "description": "Synthetic test data for Take It Down backend - safe for demo purposes",
+  
+  "users": [
+    {
+      "user_id": "victim_001",
+      "username": "victim_jane_doe",
+      "role": "victim",
+      "jurisdiction": "IN",
+      "created_at": "2025-01-10T09:00:00Z"
+    },
+    {
+      "user_id": "victim_002", 
+      "username": "victim_john_smith",
+      "role": "victim",
+      "jurisdiction": "US",
+      "created_at": "2025-01-11T14:30:00Z"
+    },
+    {
+      "user_id": "officer_001",
+      "username": "officer_alex_brown",
+      "role": "officer", 
+      "jurisdiction": "IN",
+      "created_at": "2025-01-08T08:00:00Z"
+    },
+    {
+      "user_id": "officer_002",
+      "username": "officer_sarah_wilson",
+      "role": "officer",
+      "jurisdiction": "US", 
+      "created_at": "2025-01-09T11:15:00Z"
+    },
+    {
+      "user_id": "admin_001",
+      "username": "admin_mike_chen",
+      "role": "admin",
+      "jurisdiction": "GLOBAL",
+      "created_at": "2025-01-05T07:00:00Z"
+    }
+  ],
+
+  "fake_urls": [
+    "https://fake-report.com/content123",
+    "https://demo-case.org/abc456", 
+    "https://test-takedown.net/sample789",
+    "https://harmful-demo.example.com/badcontent",
+    "https://removal-test.site/offensive123",
+    "https://fake-csam.example.org/test456",
+    "https://demo-violation.net/content789",
+    "https://test-removal.com/harmful012"
+  ],
+
+  "fake_hashes": [
+    "1234abcd5678efgh91011ijklmnopqrstuvwx1234abcd5678efgh91011ijklmnop",
+    "9876zyxw5432vuts1098rqpo7654nmlkjihgfedcba9876zyxw5432vuts1098rqpo",
+    "abcd1234efgh5678ijkl9101mnopqrstuvwxyz1234abcd5678efgh91011ijklmnop",
+    "zyxw9876vuts5432rqpo1098nmlkjihgfedcba9876zyxw5432vuts1098rqpo7654",
+    "f2ca1bb6c7e907d06dafe4687e579fce76b37e4e93f0a4e83f6e6e6b87a2a0f9",
+    "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456",
+    "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  ],
+
+  "sample_cases": [
+    {
+      "case_id": "CASE-2025-0001",
+      "case_ref": "CASE-2025-0001",
+      "submitter_id": "victim_001",
+      "status": "Submitted",
+      "jurisdiction": "IN",
+      "sla_due_at": "2025-01-15T10:00:00Z",
+      "created_at": "2025-01-13T10:00:00Z",
+      "submissions": [
+        {
+          "kind": "URL",
+          "content": "https://fake-report.com/content123",
+          "dedup_hash": "sha256_normalized_url_hash_001"
+        }
+      ]
+    },
+    {
+      "case_id": "CASE-2025-0002", 
+      "case_ref": "CASE-2025-0002",
+      "submitter_id": "victim_002",
+      "status": "In Review",
+      "jurisdiction": "US",
+      "sla_due_at": "2025-01-15T14:30:00Z",
+      "created_at": "2025-01-13T10:05:00Z",
+      "submissions": [
+        {
+          "kind": "HASH",
+          "content": "1234abcd5678efgh91011ijklmnopqrstuvwx1234abcd5678efgh91011ijklmnop",
+          "dedup_hash": "1234abcd5678efgh91011ijklmnopqrstuvwx1234abcd5678efgh91011ijklmnop"
+        }
+      ]
+    },
+    {
+      "case_id": "CASE-2025-0003",
+      "case_ref": "CASE-2025-0003", 
+      "submitter_id": "victim_001",
+      "status": "Approved",
+      "jurisdiction": "IN",
+      "sla_due_at": "2025-01-15T10:10:00Z",
+      "created_at": "2025-01-13T10:10:00Z",
+      "resolved_at": "2025-01-13T10:15:00Z",
+      "submissions": [
+        {
+          "kind": "URL",
+          "content": "https://demo-case.org/abc456",
+          "dedup_hash": "sha256_normalized_url_hash_002"
+        }
+      ]
+    },
+    {
+      "case_id": "CASE-2025-0004",
+      "case_ref": "CASE-2025-0004",
+      "submitter_id": "victim_002", 
+      "status": "Escalated",
+      "jurisdiction": "US",
+      "sla_due_at": "2025-01-11T14:30:00Z",
+      "created_at": "2025-01-10T14:30:00Z",
+      "escalated_at": "2025-01-12T14:30:00Z",
+      "submissions": [
+        {
+          "kind": "HASH",
+          "content": "9876zyxw5432vuts1098rqpo7654nmlkjihgfedcba9876zyxw5432vuts1098rqpo",
+          "dedup_hash": "9876zyxw5432vuts1098rqpo7654nmlkjihgfedcba9876zyxw5432vuts1098rqpo"
+        }
+      ]
+    }
+  ],
+
+  "audit_logs": [
+    {
+      "log_id": "audit_001",
+      "case_id": "CASE-2025-0001",
+      "actor_id": "victim_001",
+      "action": "case_created",
+      "old_state": null,
+      "new_state": "Submitted",
+      "reason_code": "initial_submission",
+      "meta": {"submission_count": 1, "jurisdiction": "IN"},
+      "created_at": "2025-01-13T10:00:00Z"
+    },
+    {
+      "log_id": "audit_002",
+      "case_id": "CASE-2025-0002", 
+      "actor_id": "officer_001",
+      "action": "review_started",
+      "old_state": "Submitted",
+      "new_state": "In Review",
+      "reason_code": "officer_assignment",
+      "meta": {"assigned_officer": "officer_001"},
+      "created_at": "2025-01-13T10:05:00Z"
+    },
+    {
+      "log_id": "audit_003",
+      "case_id": "CASE-2025-0003",
+      "actor_id": "officer_001", 
+      "action": "case_approved",
+      "old_state": "In Review",
+      "new_state": "Approved",
+      "reason_code": "content_verified_harmful",
+      "meta": {"review_duration_minutes": 5},
+      "created_at": "2025-01-13T10:15:00Z"
+    },
+    {
+      "log_id": "audit_004",
+      "case_id": "CASE-2025-0004",
+      "actor_id": "system",
+      "action": "case_escalated",
+      "old_state": "In Review", 
+      "new_state": "Escalated",
+      "reason_code": "sla_violation",
+      "meta": {"sla_hours_overdue": 24},
+      "created_at": "2025-01-12T14:30:00Z"
+    }
+  ],
+
+  "sla_config": {
+    "review_sla_hours": 48,
+    "escalation_grace_hours": 2,
+    "max_escalation_levels": 3
+  },
+
+  "notification_templates": {
+    "case_submitted": "New takedown case {case_id} submitted by {submitter}",
+    "case_escalated": "Case {case_id} escalated due to SLA violation",
+    "case_approved": "Case {case_id} approved by {officer}",
+    "case_rejected": "Case {case_id} rejected by {officer} - Reason: {reason}"
+  }
+}

@@ -1,0 +1,806 @@
+openapi: 3.0.3
+info:
+  title: Take It Down Backend API
+  description: |
+    Victim-Led Content Removal System (BE02) - A secure backend platform for processing 
+    content takedown requests with strict safety protocols and transparent audit trails.
+    
+    ## Key Features
+    - **Idempotency**: All POST requests support idempotency keys for safe retries
+    - **Deduplication**: Automatic detection of duplicate submissions across cases
+    - **Lineage Tracking**: Case ancestry for forensic analysis
+    - **SLA Management**: Automated escalation with reason codes
+    - **Audit Logging**: Immutable action history with cryptographic integrity
+    - **Policy Versioning**: Enforce redaction policy compliance
+    
+    ## Safety Protocols
+    - Never stores raw content - only URLs and SHA256 hashes
+    - Immutable audit logs with tamper-proof checksums
+    - Role-based access control with purpose-binding JWT
+    - Input validation for URL/hash format compliance
+  version: 1.0.0
+  contact:
+    name: Take It Down Team
+    email: support@takedown-backend.gov
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.takedown-backend.gov/v1
+    description: Production server
+  - url: https://staging-api.takedown-backend.gov/v1
+    description: Staging server
+  - url: http://localhost:8000/v1
+    description: Development server
+
+security:
+  - BearerAuth: []
+  - ApiKeyAuth: []
+
+paths:
+  # Authentication endpoints
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user and return JWT token with purpose-binding
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              username: "victim_jane_doe"
+              password: "secure_password_123"
+              purpose: "takedown_submission"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials
+        '403':
+          description: Purpose not allowed for user role
+        '429':
+          description: Too many login attempts
+
+  /auth/me:
+    get:
+      tags:
+        - Authentication
+      summary: Get current user info
+      description: Returns current user information and permissions
+      responses:
+        '200':
+          description: User information retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserInfo'
+        '401':
+          description: Unauthorized
+
+  # Case management endpoints
+  /cases/submit:
+    post:
+      tags:
+        - Cases
+      summary: Submit takedown request
+      description: |
+        Submit a new takedown request with idempotency support.
+        Automatically deduplicates identical submissions across cases.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmissionRequest'
+            example:
+              idempotency_key: "sub_2025_001_jane_doe"
+              jurisdiction: "IN"
+              priority: "medium"
+              submissions:
+                - kind: "URL"
+                  content: "https://fake-report.com/content123"
+                - kind: "HASH"
+                  content: "1234abcd5678efgh91011ijklmnopqrstuvwx1234abcd5678efgh91011ijklmnop"
+              notes: "Reported harmful content targeting minors"
+      responses:
+        '201':
+          description: Case submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmissionResponse'
+        '400':
+          description: Invalid input or policy version
+        '409':
+          description: Duplicate submission detected
+        '422':
+          description: Validation error
+
+  /cases/{case_id}:
+    get:
+      tags:
+        - Cases
+      summary: Get case details
+      description: Retrieve detailed information about a specific case
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: "650e8400-e29b-41d4-a716-446655440001"
+      responses:
+        '200':
+          description: Case details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseDetails'
+        '404':
+          description: Case not found
+        '403':
+          description: Insufficient permissions
+
+    patch:
+      tags:
+        - Cases
+      summary: Update case status
+      description: |
+        Update case status with reason codes and audit logging.
+        Only officers and admins can perform status changes.
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaseUpdateRequest'
+            example:
+              action: "approve"
+              reason_code: "content_verified_harmful"
+              notes: "Content verified as harmful, action taken"
+      responses:
+        '200':
+          description: Case updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseUpdateResponse'
+        '400':
+          description: Invalid action or state transition
+        '404':
+          description: Case not found
+        '403':
+          description: Insufficient permissions
+
+  /cases:
+    get:
+      tags:
+        - Cases
+      summary: List cases
+      description: |
+        List cases with filtering and pagination.
+        Victims see only their cases, officers see assigned cases, admins see all.
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [Submitted, In Review, Approved, Rejected, Escalated, Closed]
+        - name: jurisdiction
+          in: query
+          schema:
+            type: string
+        - name: priority
+          in: query
+          schema:
+            type: string
+            enum: [low, medium, high, urgent]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Cases retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseListResponse'
+
+  # Audit and reporting endpoints
+  /audit/{case_id}:
+    get:
+      tags:
+        - Audit
+      summary: Get case audit trail
+      description: Retrieve complete audit trail for a specific case
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Audit trail retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditTrailResponse'
+        '404':
+          description: Case not found
+
+  /reports/cases:
+    get:
+      tags:
+        - Reports
+      summary: Generate case reports
+      description: |
+        Generate compliance reports with SLA metrics and case statistics.
+        Supports CSV and JSON export formats.
+      parameters:
+        - name: from_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: jurisdiction
+          in: query
+          schema:
+            type: string
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [csv, json]
+            default: json
+      responses:
+        '200':
+          description: Report generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+        '400':
+          description: Invalid date range or parameters
+
+  /reports/export/{report_id}:
+    get:
+      tags:
+        - Reports
+      summary: Download report file
+      description: Download generated report file
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Report file downloaded
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Report not found
+        '410':
+          description: Report expired
+
+  # System health and monitoring
+  /health:
+    get:
+      tags:
+        - System
+      summary: Health check
+      description: Check system health and status
+      security: []
+      responses:
+        '200':
+          description: System healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /metrics:
+    get:
+      tags:
+        - System
+      summary: System metrics
+      description: Get system performance and compliance metrics
+      responses:
+        '200':
+          description: Metrics retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token with purpose-binding claims
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for service-to-service authentication
+
+  schemas:
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+        - purpose
+      properties:
+        username:
+          type: string
+          example: "victim_jane_doe"
+        password:
+          type: string
+          format: password
+          example: "secure_password_123"
+        purpose:
+          type: string
+          enum: [takedown_submission, case_review, admin_action, report_generation]
+          example: "takedown_submission"
+
+    LoginResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        token_type:
+          type: string
+          example: "bearer"
+        expires_in:
+          type: integer
+          example: 3600
+        user:
+          $ref: '#/components/schemas/UserInfo'
+
+    UserInfo:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [victim, officer, admin]
+        jurisdiction:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        last_login_at:
+          type: string
+          format: date-time
+
+    SubmissionRequest:
+      type: object
+      required:
+        - idempotency_key
+        - jurisdiction
+        - submissions
+      properties:
+        idempotency_key:
+          type: string
+          description: Unique key to prevent duplicate submissions
+          example: "sub_2025_001_jane_doe"
+        jurisdiction:
+          type: string
+          example: "IN"
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+          default: medium
+        submissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubmissionItem'
+          minItems: 1
+          maxItems: 10
+        notes:
+          type: string
+          maxLength: 1000
+
+    SubmissionItem:
+      type: object
+      required:
+        - kind
+        - content
+      properties:
+        kind:
+          type: string
+          enum: [URL, HASH]
+        content:
+          type: string
+          description: URL or SHA256 hash string
+          example: "https://fake-report.com/content123"
+
+    SubmissionResponse:
+      type: object
+      properties:
+        case_id:
+          type: string
+          format: uuid
+        case_ref:
+          type: string
+          example: "CASE-2025-0001"
+        status:
+          type: string
+          example: "Submitted"
+        duplicate_detected:
+          type: boolean
+          description: True if submission matches existing case
+        origin_case_id:
+          type: string
+          format: uuid
+          description: ID of original case if duplicate detected
+        sla_due_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+
+    CaseDetails:
+      type: object
+      properties:
+        case_id:
+          type: string
+          format: uuid
+        case_ref:
+          type: string
+        status:
+          type: string
+        priority:
+          type: string
+        jurisdiction:
+          type: string
+        submitter:
+          $ref: '#/components/schemas/UserInfo'
+        assigned_officer:
+          $ref: '#/components/schemas/UserInfo'
+        submissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubmissionItem'
+        sla_due_at:
+          type: string
+          format: date-time
+        sla_violated:
+          type: boolean
+        escalation_level:
+          type: integer
+        lineage:
+          $ref: '#/components/schemas/CaseLineage'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CaseLineage:
+      type: object
+      properties:
+        origin_case_id:
+          type: string
+          format: uuid
+        lineage_depth:
+          type: integer
+        parent_cases:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    CaseUpdateRequest:
+      type: object
+      required:
+        - action
+        - reason_code
+      properties:
+        action:
+          type: string
+          enum: [start_review, approve, reject, escalate, close]
+        reason_code:
+          type: string
+          enum: [content_verified_harmful, content_verified_safe, jurisdiction_issue, duplicate_case, sla_violation, insufficient_evidence, false_report]
+        notes:
+          type: string
+          maxLength: 1000
+
+    CaseUpdateResponse:
+      type: object
+      properties:
+        case_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+        audit_log_id:
+          type: string
+          format: uuid
+
+    CaseListResponse:
+      type: object
+      properties:
+        cases:
+          type: array
+          items:
+            $ref: '#/components/schemas/CaseSummary'
+        pagination:
+          $ref: '#/components/schemas/PaginationInfo'
+
+    CaseSummary:
+      type: object
+      properties:
+        case_id:
+          type: string
+          format: uuid
+        case_ref:
+          type: string
+        status:
+          type: string
+        priority:
+          type: string
+        jurisdiction:
+          type: string
+        submitter_name:
+          type: string
+        assigned_officer_name:
+          type: string
+        submission_count:
+          type: integer
+        sla_status:
+          type: string
+          enum: [on_time, near_due, overdue]
+        created_at:
+          type: string
+          format: date-time
+
+    PaginationInfo:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        pages:
+          type: integer
+
+    AuditTrailResponse:
+      type: object
+      properties:
+        case_id:
+          type: string
+          format: uuid
+        logs:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLog'
+
+    AuditLog:
+      type: object
+      properties:
+        log_id:
+          type: string
+          format: uuid
+        actor_id:
+          type: string
+          format: uuid
+        actor_name:
+          type: string
+        action:
+          type: string
+        old_state:
+          type: string
+        new_state:
+          type: string
+        reason_code:
+          type: string
+        meta:
+          type: object
+        ip_address:
+          type: string
+        user_agent:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        checksum:
+          type: string
+
+    ReportResponse:
+      type: object
+      properties:
+        report_id:
+          type: string
+          format: uuid
+        report_type:
+          type: string
+        format:
+          type: string
+        file_path:
+          type: string
+        file_size_bytes:
+          type: integer
+        generated_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        download_url:
+          type: string
+        metrics:
+          $ref: '#/components/schemas/ReportMetrics'
+
+    ReportMetrics:
+      type: object
+      properties:
+        total_cases:
+          type: integer
+        resolved_cases:
+          type: integer
+        sla_violations:
+          type: integer
+        compliance_percentage:
+          type: number
+        average_resolution_time_hours:
+          type: number
+        cases_by_jurisdiction:
+          type: object
+        cases_by_status:
+          type: object
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+        database:
+          type: object
+          properties:
+            status:
+              type: string
+            response_time_ms:
+              type: number
+        redis:
+          type: object
+          properties:
+            status:
+              type: string
+            response_time_ms:
+              type: number
+
+    MetricsResponse:
+      type: object
+      properties:
+        total_cases:
+          type: integer
+        active_cases:
+          type: integer
+        sla_violations:
+          type: integer
+        compliance_rate:
+          type: number
+        average_response_time_ms:
+          type: number
+        requests_per_minute:
+          type: number
+        error_rate:
+          type: number
+
+  responses:
+    UnauthorizedError:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Unauthorized"
+              message:
+                type: string
+                example: "Valid authentication required"
+
+    ForbiddenError:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Forbidden"
+              message:
+                type: string
+                example: "Insufficient permissions for this action"
+
+    ValidationError:
+      description: Input validation failed
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Validation Error"
+              message:
+                type: string
+                example: "Invalid input data"
+              details:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    field:
+                      type: string
+                    message:
+                      type: string
