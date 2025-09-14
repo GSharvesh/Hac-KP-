@@ -25,7 +25,7 @@ celery==5.3.4
 redis==5.0.1
 
 # Notifications
-smtplib2==0.2.1
+# smtplib2==0.2.1  # Not available, using built-in smtplib
 twilio==8.10.0
 
 # Data Processing
