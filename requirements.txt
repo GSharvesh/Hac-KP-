@@ -25,7 +25,6 @@ celery==5.3.4
 redis==5.0.1
 
 # Notifications
-smtplib2==0.2.1
 twilio==8.10.0
 
 # Data Processing
